@@ -43,6 +43,11 @@ ssh -i /path/to/your-key.pem ubuntu@<EC2_PUBLIC_IP>
 
 
 2. Installer la stack ELK (Elasticsearch, Logstash, Kibana)
+
+   Step 1: Install & Configure Elasticsearch (ELK Server)
+1.1 Install Java (Required for Elasticsearch & Logstash)
+sudo apt update && sudo apt install openjdk-17-jre-headless -y
+
 a. Installer Elasticsearch
 Ajoutez la clé GPG d'Elastic 
 wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | sudo apt-key add -
@@ -51,11 +56,45 @@ echo "deb https://artifacts.elastic.co/packages/7.x/apt stable main" | sudo tee 
 Mettez à jour les sources et installez Elasticsearch :
 sudo apt update
 sudo apt install elasticsearch -y
+
+sudo vi /etc/elasticsearch/elasticsearch.yml
+Modify:
+network.host: 0.0.0.0
+cluster.name: my-cluster
+node.name: node-1
+discovery.type: single-node
+
+
 Configurez Elasticsearch pour qu'il démarre automatiquement et démarrez le service :
 sudo systemctl enable elasticsearch
 sudo systemctl start elasticsearch
 Vérifiez qu'Elasticsearch fonctionne en accédant à l'URL :
 curl -X GET "localhost:9200/"
+
+Step 2: Install & Configure Logstash (ELK Server)
+2.1 Install Logstash
+sudo apt install logstash -y
+2.2 Configure Logstash to Accept Logs
+sudo vi /etc/logstash/conf.d/logstash.conf
+Add:
+input {
+beats {
+port => 5044
+}
+}
+filter {
+grok {
+match => { "message" => "%{TIMESTAMP_ISO8601:log_timestamp} %{LOGLEVEL:log_level}
+%{GREEDYDATA:log_message}" }
+}
+}output {
+elasticsearch {
+hosts => ["http://localhost:9200"]
+index => "logs-%{+YYYY.MM.dd}"
+}
+stdout { codec => rubydebug }
+}
+
 
 b. Installer Kibana
 Installez Kibana :
@@ -123,6 +162,26 @@ LOGGING = {
         },
     },
 }
+
+🌱 PARTIE 4 : Déployer ton app Django sur django-app
+📁 Étape 4.1 : Installer les dépendances
+
+sudo apt update && sudo apt install python3-pip python3-venv -y
+sudo apt install git -y
+
+👨‍💻 Étape 4.2 : Cloner ton projet Django
+git clone <url_git_repo>
+cd ton-projet
+
+🐍 Étape 4.3 : Créer un environnement virtuel et installer les libs
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+⚙️ Étape 4.4 : Migrer et lancer le serveur
+python manage.py migrate
+python manage.py collectstatic
+python manage.py runserver 0.0.0.0:8000
 
 
 5. Vérification
